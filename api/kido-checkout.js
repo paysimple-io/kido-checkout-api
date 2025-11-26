@@ -1,10 +1,9 @@
 // api/kido-checkout.js
 const Stripe = require('stripe');
-
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY); // we'll set this in Vercel
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 module.exports = async (req, res) => {
-  // Basic CORS so Webflow can call this endpoint
+  // Allow Webflow to call this endpoint
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -20,37 +19,56 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { terminals, children } = req.body || {};
+    // ---- Read JSON body manually ----
+    let body = '';
+    await new Promise((resolve, reject) => {
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+      req.on('end', resolve);
+      req.on('error', reject);
+    });
 
-    const terminalQty = parseInt(terminals, 10) || 0;
-    const childQty    = parseInt(children, 10) || 0;
+    let data = {};
+    try {
+      data = body ? JSON.parse(body) : {};
+    } catch (e) {
+      console.error('JSON parse error:', e, body);
+      res.status(400).json({ error: 'Invalid JSON body' });
+      return;
+    }
 
-    if (terminalQty < 1 || childQty < 1) {
+    const terminals = parseInt(data.terminals, 10) || 0;
+    const children  = parseInt(data.children, 10) || 0;
+
+    if (terminals < 1 || children < 1) {
       res.status(400).json({ error: 'Invalid quantities' });
       return;
     }
 
+    // ---- Create Stripe Checkout Session ----
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription', // recurring + one-time in same checkout
+      mode: 'subscription', // subscription + one-time in same checkout
       line_items: [
         {
-          // One-time terminal payment
-          price: 'price_1SXmbvEJWX9SSf0aotDEsU9s', // TERMINAL PRICE
-          quantity: terminalQty,
+          // one-time terminal fee
+          price: 'price_1SXpG1ECEjbjI89GPPV7Nrm2', // TERMINAL
+          quantity: terminals,
         },
         {
-          // $3 per child per month
-          price: 'price_1SXmcUEJWX9SSf0aTejdPeFu', // TAG / CHILD PRICE
-          quantity: childQty,
+          // $3 per child / month
+          price: 'price_1SXpGFECEjbjI89GVl70QwO1', // TAG / CHILD
+          quantity: children,
         },
       ],
       success_url: 'https://kido.nyc/success?session_id={CHECKOUT_SESSION_ID}',
       cancel_url: 'https://kido.nyc/cancel',
     });
 
+    console.log('Created session', session.id);
     res.status(200).json({ url: session.url });
   } catch (err) {
     console.error('Stripe checkout error:', err);
-    res.status(400).json({ error: 'Unable to create checkout session' });
+    res.status(500).json({ error: 'Stripe error', message: err.message });
   }
 };
