@@ -19,23 +19,18 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // ---- Read JSON body manually ----
-    let body = '';
-    await new Promise((resolve, reject) => {
-      req.on('data', chunk => {
-        body += chunk.toString();
-      });
-      req.on('end', resolve);
-      req.on('error', reject);
-    });
+    // Vercel usually gives us a parsed body already
+    let data = req.body || {};
 
-    let data = {};
-    try {
-      data = body ? JSON.parse(body) : {};
-    } catch (e) {
-      console.error('JSON parse error:', e, body);
-      res.status(400).json({ error: 'Invalid JSON body' });
-      return;
+    // If for some reason it's a string, parse it
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch (e) {
+        console.error('JSON parse error:', e, data);
+        res.status(400).json({ error: 'Invalid JSON body' });
+        return;
+      }
     }
 
     const terminals = parseInt(data.terminals, 10) || 0;
@@ -46,18 +41,17 @@ module.exports = async (req, res) => {
       return;
     }
 
-    // ---- Create Stripe Checkout Session ----
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription', // subscription + one-time in same checkout
+      mode: 'subscription', // subscription + one-time together
       line_items: [
         {
           // one-time terminal fee
-          price: 'price_1SXpG1ECEjbjI89GPPV7Nrm2', // TERMINAL
+          price: 'price_1SXpG1ECEjbjI89GPPV7Nrm2',
           quantity: terminals,
         },
         {
           // $3 per child / month
-          price: 'price_1SXpGFECEjbjI89GVl70QwO1', // TAG / CHILD
+          price: 'price_1SXpGFECEjbjI89GVl70QwO1',
           quantity: children,
         },
       ],
