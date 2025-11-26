@@ -19,10 +19,9 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Vercel usually gives us a parsed body already
+    // Vercel often parses JSON body for us, but we handle both cases
     let data = req.body || {};
 
-    // If for some reason it's a string, parse it
     if (typeof data === 'string') {
       try {
         data = JSON.parse(data);
@@ -45,13 +44,13 @@ module.exports = async (req, res) => {
       mode: 'subscription', // subscription + one-time together
       line_items: [
         {
-          // one-time terminal fee
-          price: 'price_1SXpG1ECEjbjI89GPPV7Nrm2',
+          // one-time terminal fee (TEST price)
+          price: 'price_1SXpU1ECEjbjI89Gm27cGTGk', // terminal
           quantity: terminals,
         },
         {
-          // $3 per child / month
-          price: 'price_1SXpGFECEjbjI89GVl70QwO1',
+          // $3 per child / month (TEST price)
+          price: 'price_1SXpUPECEjbjI89G5ff8Btxw', // tag / child
           quantity: children,
         },
       ],
