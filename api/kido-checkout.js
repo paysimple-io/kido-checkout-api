@@ -1,4 +1,4 @@
-// api/kido-checkout.js
+// api/kido-checkout.js (backend – runs on Vercel)
 const Stripe = require('stripe');
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Vercel often parses JSON body for us, but we handle both cases
+    // Vercel often gives us a parsed body, but we handle both cases
     let data = req.body || {};
 
     if (typeof data === 'string') {
@@ -40,22 +40,23 @@ module.exports = async (req, res) => {
       return;
     }
 
+    // LIVE Stripe prices you gave me:
+    // Terminal - price_1SYCIjBFNppMraU7AUajAqV4
+    // Tag/child - price_1SYCJ7BFNppMraU7YzrheMZz
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription', // subscription + one-time together
+      mode: 'subscription', // subscription + one-time together if needed
       line_items: [
         {
-          // one-time terminal fee (TEST price)
-          price: 'price_1SXpU1ECEjbjI89Gm27cGTGk', // terminal
+          price: 'price_1SYCIjBFNppMraU7AUajAqV4', // LIVE terminal price
           quantity: terminals,
         },
         {
-          // $3 per child / month (TEST price)
-          price: 'price_1SXpUPECEjbjI89G5ff8Btxw', // tag / child
+          price: 'price_1SYCJ7BFNppMraU7YzrheMZz', // LIVE tag/child price
           quantity: children,
         },
       ],
-      success_url: 'https://kido.nyc/success?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: 'https://kido.nyc/cancel',
+      success_url: 'https://kido.nyc/',
+      cancel_url: 'https://kido.nyc/',
     });
 
     console.log('Created session', session.id);
