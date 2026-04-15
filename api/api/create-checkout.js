@@ -1,68 +1,42 @@
-// api/kido-checkout.js (backend – runs on Vercel)
-const Stripe = require('stripe');
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+import Stripe from 'stripe';
 
-module.exports = async (req, res) => {
-  // Allow Webflow to call this endpoint
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
-  }
-
+export default async function handler(req, res) {
   try {
-    // Vercel often gives us a parsed body, but we handle both cases
-    let data = req.body || {};
+    const terminalQty = parseInt(req.query.terminal_qty || '0', 10) || 0;
+    const childQty = parseInt(req.query.child_qty || '0', 10) || 0;
 
-    if (typeof data === 'string') {
-      try {
-        data = JSON.parse(data);
-      } catch (e) {
-        console.error('JSON parse error:', e, data);
-        res.status(400).json({ error: 'Invalid JSON body' });
-        return;
-      }
+    if (terminalQty === 0 && childQty === 0) {
+      return res.status(400).send('Nothing selected');
     }
 
-    const terminals = parseInt(data.terminals, 10) || 0;
-    const children  = parseInt(data.children, 10) || 0;
+    const line_items = [];
 
-    if (terminals < 1 || children < 1) {
-      res.status(400).json({ error: 'Invalid quantities' });
-      return;
+    if (terminalQty > 0) {
+      line_items.push({
+        price: 'price_1TMTneBFNppMraU7kORHl8to',
+        quantity: terminalQty,
+      });
     }
 
-    // LIVE Stripe prices you gave me:
-    // Terminal - price_1SYCIjBFNppMraU7AUajAqV4
-    // Tag/child - price_1SYCJ7BFNppMraU7YzrheMZz
+    if (childQty > 0) {
+      line_items.push({
+        price: 'price_1SYCJ7BFNppMraU7YzrheMZz',
+        quantity: childQty,
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription', // subscription + one-time together if needed
-      line_items: [
-        {
-          price: 'price_1SYCIjBFNppMraU7AUajAqV4', // LIVE terminal price
-          quantity: terminals,
-        },
-        {
-          price: 'price_1SYCJ7BFNppMraU7YzrheMZz', // LIVE tag/child price
-          quantity: children,
-        },
-      ],
+      mode: childQty > 0 ? 'subscription' : 'payment',
+      line_items,
       success_url: 'https://kido.nyc/',
       cancel_url: 'https://kido.nyc/',
     });
 
-    console.log('Created session', session.id);
-    res.status(200).json({ url: session.url });
+    return res.redirect(303, session.url);
   } catch (err) {
     console.error('Stripe checkout error:', err);
-    res.status(500).json({ error: 'Stripe error', message: err.message });
+    return res.status(500).send(err.message || 'Server error');
   }
-};
+}
