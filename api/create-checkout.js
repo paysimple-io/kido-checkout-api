@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       });
     }
 
-  const qualifiesForPromo = childQty >= 65;
+  const qualifiesForPromo = childQty >= 60;
 
 const session = await stripe.checkout.sessions.create({
   mode: childQty > 0 ? 'subscription' : 'payment',
