@@ -27,12 +27,15 @@ export default async function handler(req, res) {
       });
     }
 
-    const session = await stripe.checkout.sessions.create({
-      mode: childQty > 0 ? 'subscription' : 'payment',
-      line_items,
-      success_url: 'https://kido.nyc/',
-      cancel_url: 'https://kido.nyc/',
-    });
+  const session = await stripe.checkout.sessions.create({
+    mode: childQty > 0 ? 'subscription' : 'payment',
+    line_items,
+  
+    allow_promotion_codes: true,
+  
+    success_url: 'https://kido.nyc/',
+    cancel_url: 'https://kido.nyc/',
+  });
 
     return res.redirect(303, session.url);
   } catch (err) {
